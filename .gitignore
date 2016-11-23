@@ -1,3 +1,6 @@
+*.psb
+*.tif
+
 *.py[cod]
 
 # C extensions

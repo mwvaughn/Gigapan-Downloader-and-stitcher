@@ -1,24 +1,54 @@
 #!/usr/bin/env python
 
-# usage: gigafetch.py <photoid>
+# usage: gigafetch.py --imageid <photoid> --resolution <level> --format [psb/tif] --delay 0
 # http://gigapan.org/gigapans/<photoid>>
 # if level is 0, max resolution will be used, try with different
 #   levels to see the image resolution to download
-# change imagemagick or outputformat below
-# Project info https://github.com/DeniR/Gigapan-Downloader-and-stitcher
 
 from xml.dom.minidom import *
 from urllib2 import *
 from urllib import *
-import sys
 import os
 import math
 import subprocess
+import argparse
+import time
+import shutil
 
-outputformat = "tif"  # psb or tif
-imagemagick = "/usr/bin/montage"  # Path to Imagemagick
-if os.name == "nt":
-  imagemagick="C:\\Program Files\\ImageMagick-6.8.5-Q16\\montage.exe"  # Windows path to Imagemagick
+defaults = {'format': 'tif',
+            'delay': 0.100,
+            'montage': '/usr/bin/montage',
+            'resolution': 0}
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--imageid",
+                    help="Gigapan Image Identifier (http://www.gigapan.com/gigapans/<IMAGEID>)")
+parser.add_argument("--resolution",
+                    help="Gigapan Image Resolution (0 = maximum available)",
+                    default=defaults['resolution'])
+parser.add_argument("--format",
+                    help="Output format (" + defaults['format'] + ")",
+                    choices=["psb", "tif"],
+                    default=defaults['format'])
+parser.add_argument("--delay",
+                    help="Minimum time in seconds between HTTP requests (" + str(defaults['delay']) + "s)",
+                    default=defaults['delay'])
+parser.add_argument("--montage",
+                    help="Full path to ImageMagick montage binary",
+                    default=defaults['montage'])
+args = parser.parse_args()
+
+if args.imageid:
+    photo_id = int(args.imageid)
+else:
+    parser.error('--imageid is required and must be an integer')
+    os.exit()
+
+level = int(args.resolution)
+imagemagick = args.montage
+outputformat = args.format
+delay = float(args.delay)
 
 
 def getText(nodelist):
@@ -41,7 +71,6 @@ def find_element_value(e, name):
     return None
 
 
-photo_id = int(sys.argv[1])
 if not os.path.exists(str(photo_id)):
     os.makedirs(str(photo_id))
 
@@ -57,13 +86,13 @@ dom = parseString(photo_kml)
 maxheight = int(find_element_value(dom.documentElement, "maxHeight"))
 maxwidth = int(find_element_value(dom.documentElement, "maxWidth"))
 tile_size = int(find_element_value(dom.documentElement, "tileSize"))
-maxlevel = max(math.ceil(maxwidth / tile_size), math.ceil(maxheight / tile_size))
+maxlevel = max(math.ceil(maxwidth / tile_size),
+               math.ceil(maxheight / tile_size))
 maxlevel = int(math.ceil(math.log(maxlevel) / math.log(2.0)))
 maxwt = int(math.ceil(maxwidth / tile_size)) + 1
 maxht = int(math.ceil(maxheight / tile_size)) + 1
 
 # find the width, height, tile number and level to use
-level = int(sys.argv[2])
 if level == 0:
     level = maxlevel
 
@@ -100,6 +129,13 @@ for j in xrange(ht):
             fout = open(pathfilename, "wb")
             fout.write(h.read())
             fout.close()
-print "Stitching... "
+            time.sleep(delay)
+print "Done"
+
+print "Stitching..."
 subprocess.call('"' + imagemagick + '" -depth 8 -geometry 256x256+0+0 -mode concatenate -tile ' + str(wt) + 'x ' + str(photo_id) + '/*.jpg ' + str(photo_id) + '-giga.' + outputformat, shell=True)
-print "OK"
+print "Done"
+
+print "Cleaning up download..."
+shutil.rmtree(str(photo_id), ignore_errors=True)
+print "Done"

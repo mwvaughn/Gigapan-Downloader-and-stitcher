@@ -1,17 +1,25 @@
-Gigapan-Downloader-and-stitcher
-===============================
+Gigafetch
+=========
 
-## Gigapan Panorama Downloader and offline stitcher to Photoshop PSB or TIFF. 
+This Python 2.7.x script downloads Gigapan.com pictures at the resolution specified and stitches them together (very quickly) either as PSB (Photoshop Large Image file) or TIFF using Imagemagick. It supports resumable downloads and throttling. 
 
-This cross-platform Python 2.X script downloads gigapan pictures at the resolution specified and very fast stitch (assemble) with export to one big PSB (Photoshop Large Image file) or TIFF using Imagemagick. Work in Windows and in any Linux. Can resume download, downloaded tiles not reloaded. Will download all missing tiles. 
+### Installation
+1. Ensure ImageMagick 6.7.+ is installed
+2. Clone this repository: ```git clone https://github.com/mwvaughn/gigafetch.git```
+3. Find out the path to the ImageMagick *montage* command: ```which montage```
+4. If it's different than ```/usr/bin/montage``` then edit the value of ```default_montage_path``` to match the location of your *montage* binary.
+5. Ensure the script is executable ```chmod a+x gigafetch.py``` and move/copy it to a location in your ```PATH```
 
-### How to run?
-1. Install Python 2.X (3.X is not supported) from python.org (Windows) or use "yum install python2.7" or similar command in Linux.  
-2. Install Imagemagick from http://www.imagemagick.org/script/binary-releases.php#windows (Windows). I recommend install ImageMagick-*-x64-static.exe x64 version, if you have x64 OS. For Linux use "yum install imagemagick" or similar command.  
-3. Download this script using "Save As" from https://raw.github.com/DeniR/Gigapan-Downloader-and-stitcher/master/gigapanDownloader.py  
-4. Change path to montage.exe in gigapanDownloader.py (Windows, default is "C:\\Program Files\\ImageMagick-6.8.5-Q16\\montage.exe") or change default /usr/bin/montage in Linux.  
-5. Select outputformat in gigapanDownloader.py - psb for large gigapans (default) or tif.  
-6. Run **python gigapanDownloader.py \<imageid> \<level>** in cmd or console. All tiles of the specified resolution level will be downloaded to \<imageid> directory, and stitched gigapan will be exported to <imageid>-giga.psb.
+### Usage
+
+### Docker
+
+You may also use this application in a Dockerized format. Either pull the image from ```tacc/gigafetch``` or build an image yourself with the included Dockerfile.
+
+```
+docker build -t gigafetch .
+docker run -v $PWD:/home:rw gigafetch 67804 0
+```
 
 Example, http://www.gigapan.com/gigapans/130095  
 The \<imageid> is 130095
@@ -24,3 +32,8 @@ Important: If you want to download the highest resolution level avaiable choose 
 
 Gigapan site is very slow, also this script use only one thread. If you want to add multithreaded download - you are welcome.
 You can try with different resolution levels to see the size of the image that will be downloaded and choose the level you need, just remember to delete the downloaded tiles
+
+docker build -t tacc/gigafetch .
+docker run --dns 8.8.8.8 -v /mnt/data/loris:/home:rw tacc/gigafetch gigafetch.py 67804 0
+
+_Forked from [Gigapan Panorama Downloader](https://github.com/DeniR/Gigapan-Downloader-and-stitcher_
