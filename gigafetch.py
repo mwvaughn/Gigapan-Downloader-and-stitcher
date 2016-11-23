@@ -23,6 +23,7 @@ defaults = {'format': 'tif',
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--imageid",
+                    required=True,
                     help="Gigapan Image Identifier (http://www.gigapan.com/gigapans/<IMAGEID>)")
 parser.add_argument("--resolution",
                     help="Gigapan Image Resolution (0 = maximum available)",
