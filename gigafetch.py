@@ -122,7 +122,7 @@ for j in xrange(ht):
     for i in xrange(wt):
         filename = "%04d-%04d.jpg" % (j, i)
         pathfilename = str(photo_id) + "/" + filename
-    if not os.path.exists(pathfilename):
+        if not os.path.exists(pathfilename):
             url = "%s/get_ge_tile/%d/%d/%d/%d" % (base, photo_id, level, j, i)
             progress = (j) * wt + i + 1
             print '(' + str(progress) + '/' + str(wt * ht) + ') Downloading ' + str(url) + ' as ' +str(filename)
