@@ -5,18 +5,25 @@
 # if level is 0, max resolution will be used, try with different
 #   levels to see the image resolution to download
 
+# TODO: Reimplement using multithreading https://gist.github.com/chandlerprall/1017266
+#       Alternatively, if I am going to implement a queue, why not throw these at 
+#       Lambda or other scale-out service provider (IronWorker?)
+
 from xml.dom.minidom import *
-from urllib2 import *
-from urllib import *
 import os
 import math
 import subprocess
 import argparse
 import time
 import shutil
+import requests
+import random
+from urllib2 import *
+from urllib import *
 
+# TIFF output, wait up to 150ms between requests, fetch max (0) resolution
 defaults = {'format': 'tif',
-            'delay': 0.100,
+            'delay': 0.500,
             'montage': '/usr/bin/montage',
             'resolution': 0}
 
@@ -51,6 +58,12 @@ imagemagick = args.montage
 outputformat = args.format
 delay = float(args.delay)
 
+max_connection_reuse = 10
+base = "http://www.gigapan.org"
+fetch_time = 0
+fetch_count = 0
+throttle_detect_threshold = 8.0
+throttled_counts = 0
 
 def getText(nodelist):
     rc = ""
@@ -75,9 +88,8 @@ def find_element_value(e, name):
 if not os.path.exists(str(photo_id)):
     os.makedirs(str(photo_id))
 
-base = "http://www.gigapan.org"
-
 # read the kml file
+# TODO: Replace with requests
 h = urlopen(base + "/gigapans/%d.kml" % (photo_id))
 photo_kml = h.read()
 
@@ -114,10 +126,12 @@ print '| Size: '+str(width)+'x'+str(height)+'px'
 print '| Number of tiles: '+str(wt)+'x'+str(ht)+' tiles = '+str(wt*ht)+' tiles'
 print '| Level: '+str(level)
 print '+----------------------------'
-print
+print ''
 print 'Starting download...'
 
 # loop around to get every tile
+reuse_count = 0
+s = requests.Session()
 for j in xrange(ht):
     for i in xrange(wt):
         filename = "%04d-%04d.jpg" % (j, i)
@@ -126,11 +140,48 @@ for j in xrange(ht):
             url = "%s/get_ge_tile/%d/%d/%d/%d" % (base, photo_id, level, j, i)
             progress = (j) * wt + i + 1
             print '(' + str(progress) + '/' + str(wt * ht) + ') Downloading ' + str(url) + ' as ' +str(filename)
-            h = urlopen(url)
-            fout = open(pathfilename, "wb")
-            fout.write(h.read())
-            fout.close()
-            time.sleep(delay)
+            reuse_count = reuse_count + 1
+            print "Reuse counter: " + str(reuse_count)
+            # Create a new session every N requests
+            # Otherwise, Gigapan seems to throttle a persistent HTTP connection
+            if (reuse_count > max_connection_reuse):
+                reuse_count = 0
+                s = requests.Session()
+                print "** Mean fetch time: " + "{0:.3f}".format(fetch_time / fetch_count) + " sec **"
+           
+            def fetchit(url, pathfilename):
+                try:
+                    r = s.get(url, stream=True)
+                    if r.status_code == 200:
+                        with open(pathfilename, 'wb') as f:
+                            for chunk in r.iter_content(1024):
+                                f.write(chunk)
+                    return True
+                except requests.exceptions.ConnectionError:
+                    return False
+
+            startTime = time.time()
+            while fetchit(url, pathfilename) is not True:
+                print "Retrying " + url + "..."
+                time.sleep(1)
+            elapsedTime = time.time() - startTime
+            fetch_time = fetch_time + elapsedTime
+            fetch_count = fetch_count + 1
+            print "Elapsed: " + "{0:.3f}".format(elapsedTime) + " sec"
+
+            # Force reconnect on next request if the elapsed time is too long
+            # Implement progressive backoff up to throttled_counts ^ 3 seconds
+            delayValue = (delay * random.random())
+            if (elapsedTime > throttle_detect_threshold):
+                reuse_count = max_connection_reuse
+                throttled_counts = throttled_counts + 1
+                if (throttled_counts > 4):
+                    throttled_counts = 4
+                delayValue = (throttle_detect_threshold ** throttled_counts)
+                print "Throttling detected: Waiting " + "{0:.3f}".format(delayValue) + " sec"
+            else:
+                throttled_counts = 0
+            time.sleep(delayValue)
 print "Done"
 
 print "Stitching..."

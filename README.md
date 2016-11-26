@@ -36,8 +36,8 @@ You may also use this application in a Dockerized format. Either pull the image 
 Fetch this Gigapan image [http://www.gigapan.com/gigapans/130095](http://www.gigapan.com/gigapans/130095) at maximum resolution, saving it as a TIFF image. Make each request to Gigapan as fast as possible by setting *delay* to 0.
 
 ```
-docker build -t gigafetch .
-docker run -t -v $PWD:/home:rw gigafetch --imageid 130095 --resolution 0 --delay 0 --format tif
+docker build -t tacc/gigafetch .
+docker run -t -v $PWD:/home:rw tacc/gigafetch --imageid 130095 --resolution 0 --delay 0 --format tif
 
 +----------------------------
 | Max size: 12417x4125px
